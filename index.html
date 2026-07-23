@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escáner de Facturas · DGII 606/607</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#16213E;
+    --ink-soft:#4A5578;
+    --paper:#F1F4F7;
+    --card:#FFFFFF;
+    --line:#DCE2EA;
+    --teal:#0E7C7B;
+    --teal-dark:#0A5A59;
+    --teal-bg:#E7F3F2;
+    --indigo:#3B4B9C;
+    --indigo-dark:#2B3874;
+    --indigo-bg:#EBEDF9;
+    --amber:#C2760C;
+    --amber-bg:#FBF1E1;
+    --red:#B3261E;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 24px 80px;}
+
+  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-mark{
+    width:46px;height:46px;border-radius:10px;
+    background:linear-gradient(135deg,var(--teal),var(--indigo));
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;color:#fff;font-size:15px;letter-spacing:.5px;
+    flex-shrink:0;
+  }
+  h1{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em;}
+  .sub{color:var(--ink-soft);font-size:14px;margin:0;}
+
+  .header-fields{display:flex;gap:12px;flex-wrap:wrap;}
+  .hf{display:flex;flex-direction:column;gap:4px;}
+  .hf label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;}
+  .hf input{
+    font-family:'IBM Plex Mono',monospace;font-size:13.5px;
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    background:var(--card);color:var(--ink);width:150px;
+  }
+  .hf input:focus{outline:2px solid var(--indigo);outline-offset:1px;}
+
+  /* Mode selector */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+  @media(max-width:640px){.modes{grid-template-columns:1fr;}}
+  .mode-card{
+    border-radius:var(--radius);padding:20px 22px;cursor:pointer;
+    border:2px solid var(--line);background:var(--card);
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    text-align:left;
+  }
+  .mode-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(22,33,62,.08);}
+  .mode-card:focus-visible{outline:3px solid var(--indigo);outline-offset:2px;}
+  .mode-card .tag{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;letter-spacing:.04em;padding:3px 9px;border-radius:100px;display:inline-block;margin-bottom:10px;}
+  .mode-card h2{font-family:'Space Grotesk',sans-serif;font-size:19px;margin:0 0 6px;}
+  .mode-card p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.45;}
+  .mode-card.m606{ }
+  .mode-card.m606 .tag{background:var(--teal-bg);color:var(--teal-dark);}
+  .mode-card.m607 .tag{background:var(--indigo-bg);color:var(--indigo-dark);}
+  .mode-card.active.m606{border-color:var(--teal);box-shadow:0 8px 20px rgba(14,124,123,.15);}
+  .mode-card.active.m607{border-color:var(--indigo);box-shadow:0 8px 20px rgba(59,75,156,.15);}
+
+  .workspace{display:none;grid-template-columns:360px 1fr;gap:20px;align-items:start;}
+  .workspace.show{display:grid;}
+  @media(max-width:900px){.workspace.show{grid-template-columns:1fr;}}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;}
+  .panel h3{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+
+  .drop{
+    border:2px dashed var(--line);border-radius:10px;padding:22px 16px;text-align:center;
+    color:var(--ink-soft);font-size:13.5px;cursor:pointer;margin-bottom:12px;
+  }
+  .drop:hover{border-color:var(--ink-soft);}
+  .drop img{max-width:100%;max-height:180px;border-radius:8px;margin-top:10px;display:block;margin-left:auto;margin-right:auto;}
+
+  button{font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;border:none;border-radius:9px;padding:10px 16px;cursor:pointer;transition:opacity .15s;}
+  button:hover{opacity:.88;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-primary{background:var(--ink);color:#fff;width:100%;}
+  .btn-teal{background:var(--teal);color:#fff;}
+  .btn-indigo{background:var(--indigo);color:#fff;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+  .btn-danger-ghost{background:transparent;color:var(--red);border:1px solid #F0D3D1;padding:5px 9px;font-size:12px;}
+  .btn-small{padding:6px 10px;font-size:12.5px;}
+
+  .field-row{margin-bottom:11px;}
+  .field-row label{display:block;font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-bottom:4px;}
+  .field-row label .opt{font-weight:400;font-style:italic;}
+  .field-row input, .field-row select{
+    width:100%;font-family:'IBM Plex Mono',monospace;font-size:13px;
+    border:1px solid var(--line);border-radius:7px;padding:8px 9px;background:#FBFCFD;color:var(--ink);
+  }
+  .field-row select{font-family:'Inter',sans-serif;}
+  .field-row input:focus, .field-row select:focus{outline:2px solid var(--indigo);outline-offset:1px;}
+  .warn-text{color:var(--amber);font-size:11px;margin-top:3px;font-family:'Inter',sans-serif;}
+  .infer-note{background:var(--amber-bg);color:#8A5A08;border:1px solid #F0DDB3;border-radius:8px;padding:9px 11px;font-size:12px;margin-bottom:14px;line-height:1.45;}
+  .infer-tag{background:var(--amber-bg);color:#8A5A08;font-weight:600;font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.03em;padding:1px 6px;border-radius:100px;margin-left:4px;}
+  input.inferred, select.inferred{background:var(--amber-bg) !important;border-color:#E9C778 !important;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  .loading{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft);padding:8px 0;}
+  .spinner{width:15px;height:15px;border:2.5px solid var(--line);border-top-color:var(--indigo);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .count-pill{font-size:12px;background:var(--paper);padding:4px 10px;border-radius:100px;color:var(--ink-soft);font-weight:600;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--ink-soft);border-bottom:1px solid var(--line);padding:8px 8px;font-weight:600;white-space:nowrap;
+  }
+  tbody td{padding:9px 8px;border-bottom:1px solid #EEF1F5;vertical-align:middle;white-space:nowrap;}
+  tbody tr.stub{border-left:3px solid transparent;}
+  tbody tr.stub.m606{border-left-color:var(--teal);}
+  tbody tr.stub.m607{border-left-color:var(--indigo);}
+  tbody td input{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;border:1px solid transparent;
+    background:transparent;width:100%;min-width:70px;border-radius:5px;padding:4px 5px;color:var(--ink);
+  }
+  tbody td input:hover{background:#F7F8FA;}
+  tbody td input:focus{outline:1.5px solid var(--indigo);background:#fff;border-color:var(--indigo);}
+  .ncf-cell{font-weight:600;color:var(--ink);}
+  .empty-state{padding:40px 10px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+  .empty-state span{font-family:'Space Grotesk',sans-serif;font-weight:600;display:block;color:var(--ink);margin-bottom:4px;}
+
+  tfoot td{padding:10px 8px;font-weight:700;font-family:'IBM Plex Mono',monospace;border-top:2px solid var(--ink);}
+
+  .limits{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-top:24px;}
+  .limits h3{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;color:var(--ink);}
+  .limits ul{margin:0;padding-left:18px;color:var(--ink-soft);font-size:13px;line-height:1.7;}
+  .limits li b{color:var(--ink);}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:11px 20px;border-radius:9px;font-size:13px;
+    box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">RD</div>
+      <div>
+        <h1>Escáner de Facturas · 606 / 607</h1>
+        <p class="sub">Fotografía una factura, revisa los datos y arma tu Excel para los formatos de envío de la DGII.</p>
+      </div>
+    </div>
+    <div class="header-fields">
+      <div class="hf">
+        <label for="rncDecl">RNC del declarante</label>
+        <input id="rncDecl" placeholder="130000000" maxlength="11">
+      </div>
+      <div class="hf">
+        <label for="periodo">Periodo (AAAAMM)</label>
+        <input id="periodo" placeholder="202607" maxlength="6">
+      </div>
+    </div>
+  </header>
+
+  <div class="modes">
+    <button class="mode-card m606" id="cardBtn606" onclick="selectMode('606')">
+      <span class="tag">FORMATO 606</span>
+      <h2>Compras y Gastos</h2>
+      <p>Facturas de proveedores: lo que compraste o gastaste. Sustenta costos, gastos e ITBIS adelantado.</p>
+    </button>
+    <button class="mode-card m607" id="cardBtn607" onclick="selectMode('607')">
+      <span class="tag">FORMATO 607</span>
+      <h2>Ventas</h2>
+      <p>Facturas que tú emitiste a tus clientes. Sustenta el ITBIS cobrado y tus ingresos declarados.</p>
+    </button>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <!-- Left: capture panel -->
+    <div class="panel">
+      <h3 id="panelTitle606" style="display:none;">📷 Nueva factura para el 606</h3>
+      <h3 id="panelTitle607" style="display:none;">📷 Nueva factura para el 607</h3>
+
+      <label class="drop" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(event)">
+        <div id="dropLabel">Toca para tomar una foto o subir una imagen de la factura</div>
+        <img id="preview" style="display:none;">
+      </label>
+
+      <button class="btn-primary" id="analyzeBtn" onclick="analyzeInvoice()" disabled>Analizar factura</button>
+      <div class="loading" id="loadingRow" style="display:none;">
+        <div class="spinner"></div> Leyendo la factura…
+      </div>
+      <div id="errorRow" style="display:none;color:var(--red);font-size:12.5px;margin-top:8px;"></div>
+
+      <div id="formArea" style="margin-top:16px;display:none;"></div>
+    </div>
+
+    <!-- Right: table -->
+    <div class="panel">
+      <div class="table-head">
+        <h3 style="margin:0;">Listado de facturas registradas</h3>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="count-pill" id="countPill">0 facturas</span>
+          <button class="btn-small" id="exportBtn" onclick="exportExcel()">⬇ Exportar a Excel</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="recordsTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="limits">
+    <h3>Limitaciones — léelas antes de enviar cualquier formato a la DGII</h3>
+    <ul>
+      <li><b>Esta herramienta no sustituye el validador oficial de la DGII.</b> Antes de enviar, siempre pre-valida el archivo con la plantilla y el validador oficiales descargados desde dgii.gov.do.</li>
+      <li><b>La lectura de la foto es automática (IA) y puede equivocarse</b>, sobre todo con dígitos del NCF, el RNC o los montos. Revisa cada campo antes de agregar la factura al listado.</li>
+      <li><b>Intenta llenar todos los campos</b>, incluyendo tipo de bien/servicio y forma de pago, aunque no estén escritos literalmente en la factura. Esos campos quedan resaltados en amarillo como "sugerido": son una estimación de la IA y debes confirmarlos o corregirlos antes de agregar la factura. Los datos clave (RNC, NCF, fechas, montos) nunca se inventan: si no se leen en la foto, quedan vacíos.</li>
+      <li><b>Los códigos y columnas exactas de los formatos 606 y 607 pueden cambiar</b> según la normativa vigente de la DGII. Verifica siempre la versión más reciente del instructivo antes de tu envío mensual.</li>
+      <li><b>No es asesoría contable ni fiscal.</b> Ante dudas sobre clasificación de gastos, retenciones o tratamiento de ITBIS, consulta a tu contador o directamente a la DGII.</li>
+      <li>Los datos que registras aquí <b>solo existen en tu navegador</b> mientras tengas esta página abierta; no se guardan en ningún servidor. Exporta a Excel antes de cerrar la pestaña.</li>
+      <li>Para mejores resultados de lectura: fotografía la factura completa, con buena luz y sin reflejos, procurando que el NCF y el RNC se vean nítidos.</li>
+      <li>Las facturas de consumo (B02) de montos pequeños pueden reportarse de forma resumida en el 607 según la normativa vigente — confirma el umbral actual antes de omitir registros.</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let currentMode = null;
+let records = { '606': [], '607': [] };
+let pendingImage = null; // {base64, mediaType}
+let pendingExtracted = null;
+
+const FIELDS = {
+  '606': [
+    {key:'rnc_cedula', label:'RNC o Cédula del proveedor', type:'text'},
+    {key:'tipo_id', label:'Tipo Identificación', type:'select', options:[['1','1 · RNC'],['2','2 · Cédula']]},
+    {key:'proveedor_nombre', label:'Nombre del proveedor', type:'text'},
+    {key:'ncf', label:'NCF / e-NCF', type:'text'},
+    {key:'ncf_modificado', label:'NCF modificado', type:'text', opt:true},
+    {key:'fecha_comprobante', label:'Fecha comprobante (AAAAMMDD)', type:'text'},
+    {key:'fecha_pago', label:'Fecha de pago (AAAAMMDD)', type:'text', opt:true},
+    {key:'tipo_bienes_servicios', label:'Tipo de bien/servicio comprado', type:'select', options:[
+      ['','— Sin clasificar —'],
+      ['01','01 · Gastos de personal'],
+      ['02','02 · Gastos por trabajos, suministros y servicios'],
+      ['03','03 · Arrendamientos'],
+      ['04','04 · Gastos de activos fijos'],
+      ['05','05 · Gastos de representación'],
+      ['06','06 · Otras deducciones admitidas'],
+      ['07','07 · Gastos financieros'],
+      ['08','08 · Gastos extraordinarios'],
+      ['09','09 · Costo de venta / compras'],
+      ['10','10 · Adquisiciones de activos'],
+      ['11','11 · Otros / no clasificado']
+    ], opt:true},
+    {key:'monto_bienes', label:'Monto facturado en bienes', type:'number'},
+    {key:'monto_servicios', label:'Monto facturado en servicios', type:'number'},
+    {key:'itbis_facturado', label:'ITBIS facturado', type:'number'},
+    {key:'itbis_retenido', label:'ITBIS retenido', type:'number', opt:true},
+    {key:'retencion_renta', label:'Retención de renta (ISR)', type:'number', opt:true},
+    {key:'forma_pago', label:'Forma de pago', type:'select', options:[
+      ['','— Sin especificar —'],['01','01 · Efectivo'],['02','02 · Cheque / transferencia / depósito'],
+      ['03','03 · Tarjeta crédito/débito'],['04','04 · Compra a crédito'],['05','05 · Permuta'],
+      ['06','06 · Nota de crédito'],['07','07 · Mixto']
+    ], opt:true},
+  ],
+  '607': [
+    {key:'rnc_cedula', label:'RNC o Cédula del cliente', type:'text', opt:true},
+    {key:'tipo_id', label:'Tipo Identificación', type:'select', options:[['1','1 · RNC'],['2','2 · Cédula'],['','— No aplica (consumo) —']]},
+    {key:'cliente_nombre', label:'Nombre del cliente', type:'text', opt:true},
+    {key:'ncf', label:'NCF / e-NCF emitido', type:'text'},
+    {key:'ncf_modificado', label:'NCF / documento modificado', type:'text', opt:true},
+    {key:'fecha_comprobante', label:'Fecha comprobante (AAAAMMDD)', type:'text'},
+    {key:'monto_facturado', label:'Monto facturado (subtotal)', type:'number'},
+    {key:'itbis_facturado', label:'ITBIS facturado', type:'number'},
+    {key:'itbis_retenido_terceros', label:'ITBIS retenido por terceros', type:'number', opt:true},
+    {key:'retencion_renta_terceros', label:'Retención de renta por terceros (ISR)', type:'number', opt:true},
+    {key:'forma_pago', label:'Forma de pago', type:'select', options:[
+      ['','— Sin especificar —'],['01','01 · Efectivo'],['02','02 · Cheque / transferencia / depósito'],
+      ['03','03 · Tarjeta crédito/débito'],['04','04 · Venta a crédito'],['05','05 · Permuta'],
+      ['06','06 · Nota de crédito'],['07','07 · Mixto']
+    ], opt:true},
+  ]
+};
+
+const EXPORT_COLUMNS = {
+  '606': [
+    ['rnc_cedula','RNC o Cédula'], ['tipo_id','Tipo Identificación'], ['proveedor_nombre','Nombre Proveedor'],
+    ['ncf','NCF'], ['ncf_modificado','NCF Modificado'], ['fecha_comprobante','Fecha Comprobante'],
+    ['fecha_pago','Fecha Pago'], ['tipo_bienes_servicios','Tipo Bienes/Servicios'],
+    ['monto_bienes','Monto Facturado Bienes'], ['monto_servicios','Monto Facturado Servicios'],
+    ['total_facturado','Total Facturado'], ['itbis_facturado','ITBIS Facturado'],
+    ['itbis_retenido','ITBIS Retenido'], ['retencion_renta','Retención Renta (ISR)'],
+    ['forma_pago','Forma de Pago']
+  ],
+  '607': [
+    ['rnc_cedula','RNC o Cédula'], ['tipo_id','Tipo Identificación'], ['cliente_nombre','Nombre Cliente'],
+    ['ncf','NCF'], ['ncf_modificado','NCF/Documento Modificado'], ['fecha_comprobante','Fecha Comprobante'],
+    ['monto_facturado','Monto Facturado'], ['itbis_facturado','ITBIS Facturado'],
+    ['itbis_retenido_terceros','ITBIS Retenido por Terceros'], ['retencion_renta_terceros','Retención Renta Terceros'],
+    ['forma_pago','Forma de Pago']
+  ]
+};
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function selectMode(mode){
+  currentMode = mode;
+  document.getElementById('cardBtn606').classList.toggle('active', mode==='606');
+  document.getElementById('cardBtn607').classList.toggle('active', mode==='607');
+  document.getElementById('panelTitle606').style.display = mode==='606' ? 'flex' : 'none';
+  document.getElementById('panelTitle607').style.display = mode==='607' ? 'flex' : 'none';
+  document.getElementById('workspace').classList.add('show');
+  resetCapture();
+  renderTable();
+}
+
+function resetCapture(){
+  pendingImage = null;
+  pendingExtracted = null;
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('dropLabel').style.display = 'block';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById('formArea').innerHTML = '';
+  document.getElementById('errorRow').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+}
+
+function handleFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    const base64 = dataUrl.split(',')[1];
+    pendingImage = { base64, mediaType: file.type || 'image/jpeg' };
+    document.getElementById('preview').src = dataUrl;
+    document.getElementById('preview').style.display = 'block';
+    document.getElementById('dropLabel').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('formArea').style.display = 'none';
+    document.getElementById('formArea').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function getAccessPassword(){
+  let pw = sessionStorage.getItem('dgii_pw');
+  if(pw === null){
+    pw = window.prompt('Contraseña de acceso a la herramienta (déjalo vacío si no se pidió una):', '') || '';
+    sessionStorage.setItem('dgii_pw', pw);
+  }
+  return pw;
+}
+
+async function analyzeInvoice(){
+  if(!pendingImage || !currentMode) return;
+  document.getElementById('loadingRow').style.display = 'flex';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('errorRow').style.display = 'none';
+
+  const isCompra = currentMode === '606';
+  const jsonShape = isCompra
+    ? `{"rnc_cedula":"","tipo_id":"1 o 2","proveedor_nombre":"","ncf":"","ncf_modificado":"","fecha_comprobante":"AAAAMMDD","fecha_pago":"AAAAMMDD","tipo_bienes_servicios":"01-11","monto_bienes":0,"monto_servicios":0,"itbis_facturado":0,"itbis_retenido":0,"retencion_renta":0,"forma_pago":"01-07","inferidos":["claves","que","fueron","adivinadas","no","leidas"]}`
+    : `{"rnc_cedula":"","tipo_id":"1, 2 o vacío","cliente_nombre":"","ncf":"","ncf_modificado":"","fecha_comprobante":"AAAAMMDD","monto_facturado":0,"itbis_facturado":0,"itbis_retenido_terceros":0,"retencion_renta_terceros":0,"forma_pago":"01-07","inferidos":["claves","que","fueron","adivinadas","no","leidas"]}`;
+
+  const prompt = `Eres un asistente que extrae datos de una factura o comprobante fiscal de República Dominicana a partir de una foto, para ayudar a llenar el formato ${currentMode} de la DGII (${isCompra ? 'Compras y Gastos' : 'Ventas'}).
+
+Analiza la imagen y responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin explicaciones y sin marcado de código (nada de \`\`\`), con exactamente esta forma:
+${jsonShape}
+
+Reglas importantes:
+- ${isCompra ? 'El RNC/Cédula corresponde al PROVEEDOR que emitió la factura (quien vende), no al comprador.' : 'El RNC/Cédula corresponde al CLIENTE/COMPRADOR que aparece en la factura, si se muestra. Si la factura es de consumo y no se ve RNC/cédula del cliente, deja el campo vacío.'}
+- El NCF suele empezar con "B" (formato antiguo) o "E" (comprobante fiscal electrónico, e-NCF).
+- Las fechas deben ir en formato AAAAMMDD (año, mes, día).
+- Los montos deben ser números (usa punto decimal, sin símbolos de moneda ni separadores de miles).
+- Intenta llenar TODOS los campos, no solo los que se leen literalmente en la imagen:
+  · "forma_pago": si la factura dice "efectivo", "tarjeta", "transferencia", "crédito", etc., úsalo para elegir el código correspondiente (01 efectivo, 02 cheque/transferencia/depósito, 03 tarjeta, 04 a crédito, 05 permuta, 06 nota de crédito, 07 mixto). Si no hay ninguna pista, haz tu mejor estimación razonable según el tipo de negocio (por ejemplo, una tienda al detalle suele ser efectivo/tarjeta).
+  ${isCompra ? '· "tipo_bienes_servicios": clasifica el gasto según lo que describen los ítems de la factura, eligiendo el código 01-11 más cercano (por ejemplo, combustible/insumos de oficina → 02; alquiler → 03; compra de un activo como equipo o mobiliario → 04 o 10). · "fecha_pago": si no se indica pago explícito, asume que es la misma que la fecha del comprobante, salvo que se indique "a crédito", en cuyo caso déjala vacía. · "itbis_retenido" y "retencion_renta": la mayoría de facturas no llevan retención; solo llena estos campos si la factura la menciona explícitamente, de lo contrario usa 0.' : '· "itbis_retenido_terceros" y "retencion_renta_terceros": la mayoría de ventas no llevan retención; solo llena estos campos si la factura la menciona explícitamente, de lo contrario usa 0.'}
+- En la clave "inferidos", lista únicamente las claves de los campos que llenaste por estimación/deducción y no porque estuvieran escritos con claridad en la imagen (por ejemplo: ["forma_pago","tipo_bienes_servicios"]). Los campos que sí leíste directamente de la factura (como NCF, RNC, fecha, montos) no deben aparecer ahí.
+- Nunca inventes el RNC, el NCF, las fechas o los montos: esos solo se llenan si se leen en la imagen; si no son visibles, déjalos vacíos o en 0.`;
+
+  try{
+    const response = await fetch("/api/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-app-password": getAccessPassword()
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: pendingImage.mediaType, data: pendingImage.base64 } },
+            { type: "text", text: prompt }
+          ]
+        }]
+      })
+    });
+    if(response.status === 401){
+      sessionStorage.removeItem('dgii_pw');
+      throw new Error('Contraseña incorrecta. Vuelve a intentar el análisis.');
+    }
+    if(response.status === 429){
+      throw new Error('Se alcanzó el límite de solicitudes por ahora. Intenta más tarde.');
+    }
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if(!textBlock) throw new Error(data.error ? (data.error.message || JSON.stringify(data.error)) : 'Sin respuesta de texto del modelo');
+    let clean = textBlock.text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(clean);
+    const inferred = Array.isArray(parsed.inferidos) ? parsed.inferidos : [];
+    delete parsed.inferidos;
+    pendingExtracted = parsed;
+    renderForm(parsed, inferred);
+  }catch(err){
+    console.error(err);
+    document.getElementById('errorRow').textContent = err.message || 'No se pudo leer la factura automáticamente. Puedes completar los campos manualmente abajo.';
+    document.getElementById('errorRow').style.display = 'block';
+    pendingExtracted = {};
+    renderForm({}, []);
+  }finally{
+    document.getElementById('loadingRow').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function renderForm(values, inferred){
+  inferred = inferred || [];
+  const area = document.getElementById('formArea');
+  const fields = FIELDS[currentMode];
+  let html = '';
+  if(inferred.length){
+    html += `<div class="infer-note">✨ Los campos resaltados fueron <b>estimados por la IA</b> (no leídos directamente de la factura). Revísalos antes de agregar.</div>`;
+  }
+  fields.forEach(f => {
+    const val = values[f.key] !== undefined && values[f.key] !== null ? values[f.key] : '';
+    const isInferred = inferred.includes(f.key);
+    html += `<div class="field-row">
+      <label>${f.label}${f.opt ? ' <span class="opt">(opcional)</span>' : ''}${isInferred ? ' <span class="infer-tag">sugerido</span>' : ''}</label>`;
+    if(f.type === 'select'){
+      html += `<select id="fld_${f.key}" class="${isInferred ? 'inferred':''}">`;
+      f.options.forEach(([ov, ol]) => {
+        html += `<option value="${ov}" ${String(val)===ov ? 'selected':''}>${ol}</option>`;
+      });
+      html += `</select>`;
+    } else {
+      html += `<input id="fld_${f.key}" class="${isInferred ? 'inferred':''}" type="${f.type==='number'?'text':'text'}" value="${val}">`;
+    }
+    html += `</div>`;
+  });
+  html += `<div style="display:flex;gap:10px;margin-top:14px;">
+      <button class="${currentMode==='606' ? 'btn-teal':'btn-indigo'}" style="flex:1;" onclick="addRecord()">＋ Agregar al listado</button>
+      <button class="btn-ghost" onclick="resetCapture()">Cancelar</button>
+    </div>`;
+  area.innerHTML = html;
+  area.style.display = 'block';
+}
+
+function readForm(){
+  const fields = FIELDS[currentMode];
+  const obj = {};
+  fields.forEach(f => {
+    const el = document.getElementById('fld_'+f.key);
+    if(!el) return;
+    obj[f.key] = el.value.trim();
+  });
+  return obj;
+}
+
+function validateRecord(rec){
+  const warnings = [];
+  const rnc = (rec.rnc_cedula||'').replace(/\D/g,'');
+  if(rnc && rnc.length !== 9 && rnc.length !== 11){
+    warnings.push('RNC/Cédula debería tener 9 u 11 dígitos.');
+  }
+  const ncf = rec.ncf || '';
+  if(ncf && ncf.length < 10){
+    warnings.push('El NCF parece incompleto, revísalo.');
+  }
+  if((parseFloat(rec.itbis_retenido)||0) > 0 && !rec.fecha_pago){
+    warnings.push('Hay ITBIS retenido: recuerda indicar la fecha de pago.');
+  }
+  return warnings;
+}
+
+function addRecord(){
+  const rec = readForm();
+  if(currentMode === '606'){
+    rec.total_facturado = ((parseFloat(rec.monto_bienes)||0) + (parseFloat(rec.monto_servicios)||0)).toFixed(2);
+  }
+  const warnings = validateRecord(rec);
+  if(warnings.length){
+    showToast('Guardado con observaciones: ' + warnings[0]);
+  } else {
+    showToast('Factura agregada al listado');
+  }
+  records[currentMode].push(rec);
+  resetCapture();
+  renderTable();
+}
+
+function deleteRecord(mode, idx){
+  records[mode].splice(idx,1);
+  renderTable();
+}
+
+function updateCell(mode, idx, key, value){
+  records[mode][idx][key] = value;
+  if(mode === '606' && (key === 'monto_bienes' || key === 'monto_servicios')){
+    const r = records[mode][idx];
+    r.total_facturado = ((parseFloat(r.monto_bienes)||0) + (parseFloat(r.monto_servicios)||0)).toFixed(2);
+    renderTable();
+  }
+}
+
+function renderTable(){
+  const table = document.getElementById('recordsTable');
+  const countPill = document.getElementById('countPill');
+  if(!currentMode){ table.innerHTML=''; return; }
+  const list = records[currentMode];
+  countPill.textContent = list.length + (list.length===1 ? ' factura' : ' facturas');
+
+  if(list.length === 0){
+    table.innerHTML = `<tr><td><div class="empty-state"><span>Aún no hay facturas en el ${currentMode}</span>Analiza tu primera foto en el panel de la izquierda.</div></td></tr>`;
+    return;
+  }
+
+  const cols = EXPORT_COLUMNS[currentMode];
+  let head = '<thead><tr>';
+  cols.forEach(([key,label]) => { head += `<th>${label}</th>`; });
+  head += '<th></th></tr></thead>';
+
+  let body = '<tbody>';
+  let totalItbis = 0, totalMonto = 0;
+  list.forEach((rec, idx) => {
+    body += `<tr class="stub m${currentMode}">`;
+    cols.forEach(([key]) => {
+      const isComputed = key === 'total_facturado';
+      const val = rec[key] !== undefined ? rec[key] : '';
+      const cellClass = key === 'ncf' ? 'ncf-cell' : '';
+      if(isComputed){
+        body += `<td class="${cellClass}"><input value="${val}" disabled></td>`;
+      } else {
+        body += `<td class="${cellClass}"><input value="${val}" onchange="updateCell('${currentMode}',${idx},'${key}',this.value)"></td>`;
+      }
+    });
+    body += `<td><button class="btn-danger-ghost" onclick="deleteRecord('${currentMode}',${idx})">Quitar</button></td></tr>`;
+    totalItbis += parseFloat(rec.itbis_facturado)||0;
+    totalMonto += parseFloat(currentMode==='606' ? rec.total_facturado : rec.monto_facturado)||0;
+  });
+  body += '</tbody>';
+
+  let foot = `<tfoot><tr>`;
+  cols.forEach(([key,label]) => {
+    if(key === 'itbis_facturado'){ foot += `<td>${totalItbis.toFixed(2)}</td>`; }
+    else if(key === (currentMode==='606' ? 'total_facturado':'monto_facturado')){ foot += `<td>${totalMonto.toFixed(2)}</td>`; }
+    else if(key === cols[0][0]){ foot += `<td>Totales</td>`; }
+    else { foot += `<td></td>`; }
+  });
+  foot += `<td></td></tr></tfoot>`;
+
+  table.innerHTML = head + body + foot;
+}
+
+function exportExcel(){
+  if(!currentMode || records[currentMode].length === 0){
+    showToast('No hay facturas registradas para exportar todavía');
+    return;
+  }
+  const cols = EXPORT_COLUMNS[currentMode];
+  const rows = records[currentMode].map(rec => {
+    const row = {};
+    cols.forEach(([key,label]) => { row[label] = rec[key] !== undefined ? rec[key] : ''; });
+    return row;
+  });
+  const wb = XLSX.utils.book_new();
+
+  const rncDecl = document.getElementById('rncDecl').value.trim();
+  const periodo = document.getElementById('periodo').value.trim();
+  const headerSheet = XLSX.utils.aoa_to_sheet([
+    ['Formato', currentMode],
+    ['RNC del declarante', rncDecl],
+    ['Periodo (AAAAMM)', periodo],
+    ['Cantidad de registros', records[currentMode].length],
+    ['Generado con', 'Escáner de Facturas 606/607 — verificar con el pre-validador oficial de la DGII antes de enviar']
+  ]);
+  XLSX.utils.book_append_sheet(wb, headerSheet, 'Encabezado');
+
+  const detailSheet = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, detailSheet, 'Formato ' + currentMode);
+
+  const filename = `DGII_${currentMode}_${periodo || 'periodo'}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('Excel descargado: ' + filename);
+}
+</script>
+</body>
+</html>
