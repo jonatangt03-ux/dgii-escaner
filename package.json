@@ -1,0 +1,16 @@
+{
+  "name": "dgii-606-607-escaner",
+  "version": "1.0.0",
+  "description": "Escaner de facturas para llenar los formatos 606 y 607 de la DGII (Republica Dominicana)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
